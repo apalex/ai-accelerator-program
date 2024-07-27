@@ -3,15 +3,17 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import yfinance as yf
-import datetime as dt
+from datetime import datetime, timedelta
+from scipy import stats
+import mplfinance as mpf
 
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
 
 stock_name = yf.Ticker('META')
-data = stock_name.history(period="max")
-
-# Drop rows with missing values
-# data.dropna(inplace=True)
+# data = stock_name.history(period="max")
+today = datetime.now().strftime('%Y-%m-%d')
+data = stock_name.history(start='2014-01-01', end=today)
 
 # Price Info
 print(data)
@@ -41,6 +43,20 @@ print(stock_name.quarterly_financials)
 # print(stock_name.recommendations)
 # print(stock_name.recommendations['Grade'].value_counts())
 
+# Data Cleaning
+# If is an index not an individual stock
+# del stock_name["Dividends"]
+# del stock_name["Stock Splits"]
+
+# Drop rows with missing values, no need to fill
+# data.dropna(inplace=True)
+
+# Outliers
+# z_scores = np.abs(stats.zscore(data))
+# data = data[(z_scores < 3).all(axis=1)]
+
+
+# Data Visualization
 # Subplots of Price Info
 data.plot(kind="line", figsize=(12,12), subplots=True)
 plt.show()
@@ -55,12 +71,18 @@ plt.ylabel('Price')
 plt.legend()
 plt.show()
 
-# # stock_name.plot.line(y="Close", use_index=True)
-# # plt.show()
+# Plot with candles along with volume and moving average
+days = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+month = stock_name.history(start=days, end=today)
+mpf.plot(month, type='candle', volume=True, mav=(3,6,9))
 
-# Data Cleaning
-# If is an index not an individual stock
-# del stock_name["Dividends"]
-# del stock_name["Stock Splits"]
-
-
+# Heatmap correlation
+plt.figure(figsize=(12, 8))
+correlation_matrix = data.corr()
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0,
+            linewidths=0.5, linecolor='black', cbar_kws={'shrink': 0.75, 'label': 'Correlation Coefficient'})
+plt.title('Correlation Heatmap of Stock Data', fontsize=16)
+plt.xticks(rotation=45, ha='right')
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.show()
