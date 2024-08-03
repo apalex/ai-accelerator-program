@@ -6,6 +6,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 from scipy import stats
 import mplfinance as mpf
+from sklearn.preprocessing import MinMaxScaler
 
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
@@ -86,3 +87,20 @@ plt.xticks(rotation=45, ha='right')
 plt.yticks(rotation=0)
 plt.tight_layout()
 plt.show()
+
+# Splitting data into training and test set
+
+high_prices = data.loc[:, 'High'].values.reshape(-1, 1)
+low_prices = data.loc[:, 'Low'].values.reshape(-1, 1)
+mid_prices = (high_prices + low_prices) / 2.0
+
+# length of mid_prices is 2664
+
+train_data = mid_prices[:2000]
+test_data = mid_prices[2000:]
+
+#normalize data
+
+scaler = MinMaxScaler()
+train_data = train_data.reshape(-1,1)
+test_data = test_data.reshape(-1,1)
