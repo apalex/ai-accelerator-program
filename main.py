@@ -6,7 +6,6 @@ import yfinance as yf
 from datetime import datetime, timedelta
 from scipy import stats
 import mplfinance as mpf
-from sklearn.preprocessing import MinMaxScaler
 
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
@@ -66,9 +65,9 @@ plt.show()
 plt.figure(figsize=(14, 7))
 plt.plot(data.index, data['Close'], label='Close', color='blue')
 plt.plot(data.index, data['Open'], label='Open', color='orange')
-plt.title('Open and Close Prices')
+plt.title('Stock Open and Close Prices')
 plt.xlabel('Date')
-plt.ylabel('Price')
+plt.ylabel('Stock Price (USD)')
 plt.legend()
 plt.show()
 
