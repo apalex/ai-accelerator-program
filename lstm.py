@@ -8,6 +8,7 @@ from sklearn.metrics import mean_squared_error
 from keras.models import Sequential
 from keras.layers import Dense, LSTM, Dropout
 from keras.optimizers import Adam
+from keras.callbacks import EarlyStopping
 
 # LSTM Model
 
@@ -47,7 +48,8 @@ x_train, y_train = prepare_data(closing_prices_scaled, n_steps)
 x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
 
 model = LSTM_Model((x_train.shape[1], 1))
-model.fit(x_train, y_train, epochs=50, batch_size=32, validation_split=0.1)
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+model.fit(x_train, y_train, epochs=500, batch_size=32, validation_split=0.1, callbacks=[early_stopping])
 
 
 train_predictions = model.predict(x_train)
