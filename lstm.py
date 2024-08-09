@@ -10,9 +10,10 @@ from keras.layers import Dense, LSTM, Dropout
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
 from sklearn.metrics import r2_score
+from sklearn.metrics import mean_absolute_error
 
 # Fetch stock data
-stock_name = yf.Ticker('META')
+stock_name = yf.Ticker('AAPL')
 today = datetime.now().strftime('%Y-%m-%d')
 data = stock_name.history(start='2016-01-01', end=today)
 
@@ -74,7 +75,7 @@ def LSTM_Model(input_shape):
 
 model = LSTM_Model((x_train.shape[1], x_train.shape[2]))
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-model.fit(x_train, y_train, epochs=500, batch_size=32, validation_data=(x_val, y_val), callbacks=[early_stopping])
+model.fit(x_train, y_train, epochs=1000, batch_size=32, validation_data=(x_val, y_val), callbacks=[early_stopping])
 
 # Predictions
 train_predictions = model.predict(x_train)
@@ -108,6 +109,15 @@ test_r2 = r2_score(data['Close'][n_steps + train_size + val_size:], test_predict
 print(f'R-squared on Training Data: {train_r2}')
 print(f'R-squared on Validation Data: {val_r2}')
 print(f'R-squared on Test Data: {test_r2}')
+
+# Calculate MAE for each set
+train_mae = mean_absolute_error(data['Close'][n_steps:n_steps + train_size], train_predictions)
+val_mae = mean_absolute_error(data['Close'][n_steps + train_size:n_steps + train_size + val_size], val_predictions)
+test_mae = mean_absolute_error(data['Close'][n_steps + train_size + val_size:], test_predictions)
+
+print(f'Mean Absolute Error on Training Data: {train_mae}')
+print(f'Mean Absolute Error on Validation Data: {val_mae}')
+print(f'Mean Absolute Error on Test Data: {test_mae}')
 
 # Function to predict the next n days
 def predict_next_days(model, last_data, n_days, scaler, feature_index):
