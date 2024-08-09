@@ -9,13 +9,12 @@ from keras.models import Sequential
 from keras.layers import Dense, LSTM, Dropout
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
-
-# 40s MSE
+from sklearn.metrics import r2_score
 
 # Fetch stock data
 stock_name = yf.Ticker('META')
 today = datetime.now().strftime('%Y-%m-%d')
-data = stock_name.history(start='2014-01-01', end=today)
+data = stock_name.history(start='2016-01-01', end=today)
 
 # Adding Moving Averages
 data['MA50'] = data['Close'].rolling(window=50).mean()
@@ -48,7 +47,16 @@ def prepare_data(data, n_steps):
     return np.array(x), np.array(y)
 
 n_steps = 50
-x_train, y_train = prepare_data(scaled_features, n_steps)
+x, y = prepare_data(scaled_features, n_steps)
+
+# Split the data into train, validation, and test sets
+train_size = int(len(x) * 0.7)
+val_size = int(len(x) * 0.2)
+test_size = len(x) - train_size - val_size
+
+x_train, y_train = x[:train_size], y[:train_size]
+x_val, y_val = x[train_size:train_size + val_size], y[train_size:train_size + val_size]
+x_test, y_test = x[train_size + val_size:], y[train_size + val_size:]
 
 # Model
 def LSTM_Model(input_shape):
@@ -66,24 +74,92 @@ def LSTM_Model(input_shape):
 
 model = LSTM_Model((x_train.shape[1], x_train.shape[2]))
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-model.fit(x_train, y_train, epochs=500, batch_size=32, validation_split=0.1, callbacks=[early_stopping])
+model.fit(x_train, y_train, epochs=500, batch_size=32, validation_data=(x_val, y_val), callbacks=[early_stopping])
 
 # Predictions
 train_predictions = model.predict(x_train)
-scaled_predictions = np.zeros((train_predictions.shape[0], scaled_features.shape[1]))
-scaled_predictions[:, 3] = train_predictions[:, 0]
-train_predictions = scaler.inverse_transform(scaled_predictions)[:, 3]
+val_predictions = model.predict(x_val)
+test_predictions = model.predict(x_test)
 
-mse = mean_squared_error(data['Close'][n_steps:], train_predictions)
-print(f'Mean Squared Error on Training Data: {mse}')
+# Rescale predictions back to original scale
+def rescale_predictions(predictions, original_data, scaler, feature_index):
+    scaled_predictions = np.zeros((predictions.shape[0], original_data.shape[1]))
+    scaled_predictions[:, feature_index] = predictions[:, 0]
+    return scaler.inverse_transform(scaled_predictions)[:, feature_index]
 
-# Plot
+train_predictions = rescale_predictions(train_predictions, scaled_features, scaler, 3)
+val_predictions = rescale_predictions(val_predictions, scaled_features, scaler, 3)
+test_predictions = rescale_predictions(test_predictions, scaled_features, scaler, 3)
+
+# Calculate MSE for each set
+train_mse = mean_squared_error(data['Close'][n_steps:n_steps + train_size], train_predictions)
+val_mse = mean_squared_error(data['Close'][n_steps + train_size:n_steps + train_size + val_size], val_predictions)
+test_mse = mean_squared_error(data['Close'][n_steps + train_size + val_size:], test_predictions)
+
+print(f'Mean Squared Error on Training Data: {train_mse}')
+print(f'Mean Squared Error on Validation Data: {val_mse}')
+print(f'Mean Squared Error on Test Data: {test_mse}')
+
+# Calculate R-squared for each set
+train_r2 = r2_score(data['Close'][n_steps:n_steps + train_size], train_predictions)
+val_r2 = r2_score(data['Close'][n_steps + train_size:n_steps + train_size + val_size], val_predictions)
+test_r2 = r2_score(data['Close'][n_steps + train_size + val_size:], test_predictions)
+
+print(f'R-squared on Training Data: {train_r2}')
+print(f'R-squared on Validation Data: {val_r2}')
+print(f'R-squared on Test Data: {test_r2}')
+
+# Function to predict the next n days
+def predict_next_days(model, last_data, n_days, scaler, feature_index):
+    predictions = []
+    current_input = last_data[-n_steps:].reshape(1, n_steps, last_data.shape[1])
+    
+    for _ in range(n_days):
+        next_pred = model.predict(current_input)
+        predictions.append(next_pred[0, 0])
+        
+        next_input = np.zeros((1, n_steps, last_data.shape[1]))
+        next_input[0, :-1, :] = current_input[0, 1:, :]
+        next_input[0, -1, feature_index] = next_pred
+        
+        current_input = next_input
+        
+    scaled_predictions = np.zeros((n_days, last_data.shape[1]))
+    scaled_predictions[:, feature_index] = predictions
+    return scaler.inverse_transform(scaled_predictions)[:, feature_index]
+
+# Prediction for the next 5 days
+next_input = x_test[-1].reshape(1, n_steps, x_test.shape[2])
+next_5_days_predictions = []
+
+for _ in range(5):
+    next_pred = model.predict(next_input)
+    next_5_days_predictions.append(next_pred[0, 0])
+    
+    # Update next_input with the new prediction
+    next_input = np.roll(next_input, -1, axis=1)
+    next_input[0, -1, 3] = next_pred
+
+next_5_days_predictions = np.array(next_5_days_predictions)
+next_5_days_predictions = rescale_predictions(next_5_days_predictions.reshape(-1, 1), scaled_features, scaler, 3)
+
+print(f'Predictions for the next 5 days: {next_5_days_predictions}')
+
+# Extend the index to include the next 5 days
+future_dates = pd.date_range(start=data.index[-1], periods=6, freq='D')[1:]
+
 plt.figure(figsize=(12, 6))
-plt.plot(data.index[n_steps:], data['Close'][n_steps:], label='Actual Prices', color='blue')
-plt.plot(data.index[n_steps:], train_predictions, label='Predicted Prices', color='red')
-plt.plot(data.index, data['MA50'], label='MA50', color='green')
-plt.plot(data.index, data['MA100'], label='MA100', color='orange')
-plt.plot(data.index, data['MA200'], label='MA200', color='purple')
+plt.plot(data.index[n_steps:n_steps + train_size], data['Close'][n_steps:n_steps + train_size], label='Train Actual Prices', color='blue')
+plt.plot(data.index[n_steps + train_size:n_steps + train_size + val_size], data['Close'][n_steps + train_size:n_steps + train_size + val_size], label='Validation Actual Prices', color='orange')
+plt.plot(data.index[n_steps + train_size + val_size:], data['Close'][n_steps + train_size + val_size:], label='Test Actual Prices', color='green')
+
+plt.plot(data.index[n_steps:n_steps + train_size], train_predictions, label='Train Predicted Prices', color='red')
+plt.plot(data.index[n_steps + train_size:n_steps + train_size + val_size], val_predictions, label='Validation Predicted Prices', color='purple')
+plt.plot(data.index[n_steps + train_size + val_size:], test_predictions, label='Test Predicted Prices', color='brown')
+
+# Plot the next 5 days predictions
+plt.plot(future_dates, next_5_days_predictions, label='Next 5 Days Predictions', color='orange', linestyle='--')
+
 plt.title(f'{stock_name.info["symbol"]} Stock Price Prediction using LSTM')
 plt.xlabel('Date')
 plt.ylabel('Stock Price (USD)')
