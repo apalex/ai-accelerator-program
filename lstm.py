@@ -62,14 +62,11 @@ x_test, y_test = x[train_size + val_size:], y[train_size + val_size:]
 # Model
 def LSTM_Model(input_shape):
     model = Sequential()
-    model.add(LSTM(units=50, return_sequences=True, input_shape=input_shape))
-    model.add(Dropout(0.15))
-    model.add(LSTM(units=50, return_sequences=False))
-    model.add(Dropout(0.15))
-    model.add(Dense(units=25))
+    model.add(LSTM(units=50, return_sequences=True, activation='relu', input_shape=input_shape))
+    model.add(LSTM(units=50, activation='relu', return_sequences=False))
     model.add(Dense(units=1))
     
-    model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
+    model.compile(optimizer=Adam(), loss='mean_squared_error')
     
     return model
 
@@ -93,9 +90,9 @@ val_predictions = rescale_predictions(val_predictions, scaled_features, scaler, 
 test_predictions = rescale_predictions(test_predictions, scaled_features, scaler, 3)
 
 # Calculate MSE for each set
-train_mse = mean_squared_error(data['Close'][n_steps:n_steps + train_size], train_predictions)
-val_mse = mean_squared_error(data['Close'][n_steps + train_size:n_steps + train_size + val_size], val_predictions)
-test_mse = mean_squared_error(data['Close'][n_steps + train_size + val_size:], test_predictions)
+train_mse = mean_squared_error(data['Close'][n_steps:n_steps + train_size], train_predictions, squared=False)
+val_mse = mean_squared_error(data['Close'][n_steps + train_size:n_steps + train_size + val_size], val_predictions, squared=False)
+test_mse = mean_squared_error(data['Close'][n_steps + train_size + val_size:], test_predictions, squared=False)
 
 print(f'Mean Squared Error on Training Data: {train_mse}')
 print(f'Mean Squared Error on Validation Data: {val_mse}')
@@ -154,6 +151,8 @@ next_5_days_predictions = np.array(next_5_days_predictions)
 next_5_days_predictions = rescale_predictions(next_5_days_predictions.reshape(-1, 1), scaled_features, scaler, 3)
 
 print(f'Predictions for the next 5 days: {next_5_days_predictions}')
+
+print(model.summary())
 
 # Extend the index to include the next 5 days
 future_dates = pd.date_range(start=data.index[-1], periods=6, freq='D')[1:]
