@@ -33,24 +33,12 @@ class TSFStockPredictor:
     fig.show()
     """
     
-    def build_model(self):
-        model = Prophet()
-        model.fit(self.df)
-        self.model = model
-
-    def train_model(self):
-        train_data = self.df.sample(frac=0.8, random_state=0)
-        test_data = self.df.drop(train_data.index)
-
-    """
-    maybe
     def build_and_train_model(self):
         self.train_data = self.df.sample(frac=0.8, random_state=0)
         self.test_data = self.df.drop(self.train_data.index)
         
         self.model = Prophet()
         self.model.fit(self.train_data)
-    """
 
     # making future predictions
     def predict(self):
