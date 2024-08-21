@@ -9,6 +9,7 @@ from keras.models import Sequential
 from keras.layers import Dense, LSTM
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
+from dateutil.relativedelta import relativedelta as rd
 
 class LSTMStockPredictor:
     
@@ -79,12 +80,20 @@ class LSTMStockPredictor:
         val_predictions = self.rescale_predictions(val_predictions)
         test_predictions = self.rescale_predictions(test_predictions)
         
-        return train_predictions, val_predictions, test_predictions
+        return train_predictions, test_predictions, val_predictions
     
     def rescale_predictions(self, predictions):
-        scaled_predictions = np.zeros((predictions.shape[0], self.data.shape[1]))
+        # Create an array with the same number of columns as the original scaled features (9 columns, as expected by the scaler)
+        scaled_predictions = np.zeros((predictions.shape[0], 9))
+        
+        # Place the predictions in the 'Close' price column (assuming it's the 4th column, index 3)
         scaled_predictions[:, 3] = predictions[:, 0]
-        return self.scaler.inverse_transform(scaled_predictions)[:, 3]
+        
+        # Now perform the inverse transformation on the entire array
+        rescaled_predictions = self.scaler.inverse_transform(scaled_predictions)
+        
+        # Return only the 'Close' price column
+        return rescaled_predictions[:, 3]
 
     def calculate_error_metrics(self, train_predictions, val_predictions, test_predictions):
         train_size = len(self.x_train)
@@ -153,12 +162,15 @@ class LSTMStockPredictor:
         plt.show()
     """
 
-# Example Usage:
-# predictor = LSTMStockPredictor(ticker='AAPL')
-# predictor.prepare_data()
-# predictor.build_model()
-# predictor.train_model()
-# train_preds, val_preds, test_preds = predictor.predict()
-# metrics = predictor.calculate_error_metrics(train_preds, val_preds, test_preds)
-# next_days_preds = predictor.predict_next_days(5)
-# predictor.plot_results(train_preds, val_preds, test_preds, next_days_preds)
+# Sample Usage
+def main():
+    today = datetime.now()
+    time_frame = today - rd(years=10)
+    predictor = LSTMStockPredictor(ticker='AAPL', start_date=time_frame)
+    predictor.prepare_data()
+    predictor.build_model()
+    predictor.train_model()
+    train_preds, val_preds, test_preds = predictor.predict()
+    metrics = predictor.calculate_error_metrics(train_preds, val_preds, test_preds)
+    next_days_preds = predictor.predict_next_days(5)
+    predictor.plot_results(train_preds, val_preds, test_preds, next_days_preds)

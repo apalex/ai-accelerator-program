@@ -5,14 +5,13 @@ import pandas as pd
 from datetime import datetime as dt
 from dateutil.relativedelta import relativedelta as rd
 
-# C:\Users\ducky\Desktop\financebro\ai-accelerator-program\LSTM.py
-
 st.title("Finance Bro")
 st.markdown("An AI financial assistant to help you envision the market!")
 
 st.divider()
 
-st.subheader("Select some parameters to get started!")
+st.subheader("Select a stock to get started!")
+st.write("")
 
 # Columns (side by side) for parameters of graph pre model prediction
 col1, col2, = st.columns(2)
@@ -39,30 +38,49 @@ with col2:
 # Fetching data set from inputs into graph
 ticker = yf.Ticker(selected_ticker)
 today = dt.now()
-start_date = None
+time_frame = None
 
 if selected_time_frame == "5d":
-    start_date = today - rd(days=5)
+    time_frame = today - rd(days=5)
 
 elif selected_time_frame == "1mo":
-    start_date = today - rd(months=1)
+    time_frame = today - rd(months=1)
 
 elif selected_time_frame == "6mo":
-    start_date = today - rd(months=6)
+    time_frame = today - rd(months=6)
 
 elif selected_time_frame == "1y":
-    start_date = today - rd(years=1)
+    time_frame = today - rd(years=1)
 
 elif selected_time_frame == "5y":
-    start_date = today - rd(years=5)
+    time_frame = today - rd(years=5)
 
-graph_df = ticker.history(start=start_date, end=today)
+st.write("")
+st.write("")
+st.write("")
 
+graph_df = ticker.history(start=time_frame, end=today)
 st.line_chart(
     data=graph_df['Close'],
-    x_label="Date",
     y_label="Close Price"
 )
 
 st.divider()
 
+st.subheader("Now let's do some prediction!")
+num_days = st.slider("Number of days to be predicted:", min_value=1, max_value=10)
+
+st.write("")
+
+if st.button("Predict", type="primary"):
+    st.divider()
+    date = today - rd(years=10)
+    time_frame = date.strftime('%Y-%m-%d')
+    predictor = lstm.LSTMStockPredictor(ticker=selected_ticker, start_date=time_frame, n_steps=50)
+    predictor.prepare_data()
+    predictor.build_model()
+    predictor.train_model()
+    train_pred, test_pred, val_pred = predictor.predict()
+    err_metrics = predictor.calculate_error_metrics(train_predictions=train_pred, test_predictions=test_pred, val_predictions=val_pred)
+    print(err_metrics)
+    n_days_preds = predictor.predict_next_days(num_days)
