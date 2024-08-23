@@ -7,60 +7,54 @@ import plotly.express as px
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import mean_squared_error
 
-class TSFStockPredictor:
+# fetching stock data
+stock_name = yf.Ticker('META')
+ticker = yf.Ticker('META')
+today = dt.now().strftime('%Y-%m-%d')
+df = stock_name.history(start='2014-01-01', end=today)
+df = ticker.history(start='2014-01-01', end=today)
 
-    def __init__(self, ticker, start_date):
-        self.ticker = ticker
-        self.df = self.fetch_data(start_date)
-        self.model = None
+# preparing data for prophet
+df.reset_index(inplace=True)
+df['Date'] = df['Date'].dt.strftime('%Y-%m-%d')
+df[['ds','y']] = df[['Date','Close']]  
+print(df)
+df['ds'] = df['Date'].dt.strftime('%Y-%m-%d')
+df[['y']] = df[['Close']]  
 
-    def fetch_data(self, start_date):
-        ticker = yf.Ticker(self.ticker)
-        today = dt.now().strftime('%Y-%m-%d')
-        df = ticker.history(start_date, end=today)
+# data visualization
+# real data visualization
+fig = px.line(df, x='ds', y='y')
+fig.update_xaxes(rangeslider_visible=True)
+fig.show()
 
-        return df
+# Create and fit model
+model = Prophet()
+model.fit(df)
 
-    def prepare_data(self):
-        self.df.reset_index(inplace=True)
-        self.df['ds'] = self.df['Date'].dt.strftime('%Y-%m-%d')
-        self.df[['y']] = self.df[['Close']]  
+# train and test data tests
+train_data = df.sample(frac=0.8, random_state=0)
+test_data = df.drop(train_data.index)
+print(f'training data size : {train_data.shape}')
+print(f'testing data size : {test_data.shape}')
 
-    """
-    # real data visualization
-    fig = px.line(df, x='ds', y='y')
-    fig.update_xaxes(rangeslider_visible=True)
-    fig.show()
-    """
-    
-    def build_and_train_model(self):
-        self.train_data = self.df.sample(frac=0.8, random_state=0)
-        self.test_data = self.df.drop(self.train_data.index)
-        
-        self.model = Prophet()
-        self.model.fit(self.train_data)
+# making future predictions
+future = model.make_future_dataframe(periods=30)
+forecast = model.predict(future)
 
-    # making future predictions
-    def predict(self):
-        future = self.model.make_future_dataframe(periods=30)
-        forecast = self.model.predict(future)
-        return forecast
+# plotting predictions
+model.plot(forecast)
+plt.title(f"Predicted Stock Price of {ticker} Using Prophet")
+plt.xlabel("Date")
+plt.ylabel("Close")
+plt.show()
 
-    """
-    # plotting predictions
-    model.plot(forecast)
-    plt.title(f"Predicted Stock Price of {ticker} Using Prophet")
-    plt.xlabel("Date")
-    plt.ylabel("Close")
-    plt.show()
-    """
+# MAE
+y_actual = test_data['y']
+y_predicted = forecast[forecast['ds'].isin(test_data['ds'])]['yhat']
+mae = mean_absolute_error(y_actual, y_predicted)
+print(f'Mean Absolute Error: {mae}')
 
-    def calc_error_metrics(self, forecast):
-        y_actual = self.test_data['y']
-        y_predicted = forecast[forecast['ds'].isin(self.test_data['ds'])]['yhat']
-        
-        mae = mean_absolute_error(y_actual, y_predicted)
-        mse = mean_squared_error(y_actual, y_predicted)
-        
-        print(f'Mean Absolute Error: {mae}')
-        print(f'Mean Squared Error: {mse}')
+#MSE
+mse = mean_squared_error(y_actual, y_predicted)
+print(f'Mean squared error: {mse}')

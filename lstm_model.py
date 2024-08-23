@@ -13,6 +13,7 @@ from dateutil.relativedelta import relativedelta as rd
 
 class LSTMStockPredictor:
     
+    # Constructor for Lstm model
     def __init__(self, ticker, start_date, n_steps):
         self.ticker = ticker
         self.n_steps = n_steps
@@ -20,6 +21,7 @@ class LSTMStockPredictor:
         self.scaler = MinMaxScaler(feature_range=(0, 1))
         self.model = None
     
+    # method to fetch data from yfinance based on ticker and start date
     def fetch_data(self, start_date):
         stock_name = yf.Ticker(self.ticker)
         today = datetime.now().strftime('%Y-%m-%d')
@@ -32,6 +34,7 @@ class LSTMStockPredictor:
         data = data.dropna()
         return data
 
+    #method to calculate RSI 
     @staticmethod
     def calculate_RSI(data, window):
         delta = data['Close'].diff()
@@ -41,6 +44,7 @@ class LSTMStockPredictor:
         RSI = 100 - (100 / (1 + RS))
         return RSI
 
+    # method to prepare the data
     def prepare_data(self):
         features = self.data[['Open', 'High', 'Low', 'Close', 'Volume', 'MA50', 'MA100', 'MA200', 'RSI']]
         scaled_features = self.scaler.fit_transform(features)
@@ -59,6 +63,7 @@ class LSTMStockPredictor:
         self.x_val, self.y_val = x[train_size:train_size + val_size], y[train_size:train_size + val_size]
         self.x_test, self.y_test = x[train_size + val_size:], y[train_size + val_size:]
     
+    # method to build the model
     def build_model(self):
         self.model = Sequential()
         self.model.add(LSTM(units=50, return_sequences=True, activation='relu', input_shape=(self.x_train.shape[1], self.x_train.shape[2])))
@@ -67,10 +72,12 @@ class LSTMStockPredictor:
         
         self.model.compile(optimizer=Adam(), loss='mean_squared_error')
     
+    # method to train the model with default parameters
     def train_model(self, epochs=1000, batch_size=32):
         early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
         self.model.fit(self.x_train, self.y_train, epochs=epochs, batch_size=batch_size, validation_data=(self.x_val, self.y_val), callbacks=[early_stopping])
     
+    # method to predict based on the self.dataset of the self.lstm_model object
     def predict(self):
         train_predictions = self.model.predict(self.x_train)
         val_predictions = self.model.predict(self.x_val)
@@ -82,6 +89,7 @@ class LSTMStockPredictor:
         
         return train_predictions, test_predictions, val_predictions
     
+    # method to rescale predictions accordingly
     def rescale_predictions(self, predictions):
         # Create an array with the same number of columns as the original scaled features (9 columns, as expected by the scaler)
         scaled_predictions = np.zeros((predictions.shape[0], 9))
@@ -95,6 +103,7 @@ class LSTMStockPredictor:
         # Return only the 'Close' price column
         return rescaled_predictions[:, 3]
 
+    # method to return error metrics: MAE, MSE, R^2 score
     def calculate_error_metrics(self, train_predictions, val_predictions, test_predictions):
         train_size = len(self.x_train)
         val_size = len(self.x_val)
@@ -112,17 +121,18 @@ class LSTMStockPredictor:
         test_mae = mean_absolute_error(self.data['Close'][self.n_steps + train_size + val_size:], test_predictions)
         
         return {
-            'train_mse': train_mse,
-            'val_mse': val_mse,
-            'test_mse': test_mse,
-            'train_r2': train_r2,
-            'val_r2': val_r2,
-            'test_r2': test_r2,
-            'train_mae': train_mae,
-            'val_mae': val_mae,
-            'test_mae': test_mae
+            'Training set MSE': round(train_mse, 3),
+            'Validation set MSE': round(val_mse, 3),
+            'Test set MSE': round(test_mse, 3),
+            'Training set R^2 score': round(train_r2, 3),
+            'Validation set R^2 score': round(val_r2, 3),
+            'Test set R^2 score': round(test_r2, 3),
+            'Training set MAE': round(train_mae, 3),
+            'Validation set MAE': round(val_mae, 3),
+            'Test set MAE': round(test_mae, 3)
         }
     
+    # method to predict n amount of future days
     def predict_next_days(self, n_days):
         next_input = self.x_test[-1].reshape(1, self.n_steps, self.x_test.shape[2])
         next_days_predictions = []
