@@ -8,21 +8,15 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import mean_squared_error
 
 # fetching stock data
-stock_name = yf.Ticker('META')
 ticker = yf.Ticker('META')
 today = dt.now().strftime('%Y-%m-%d')
-df = stock_name.history(start='2014-01-01', end=today)
 df = ticker.history(start='2014-01-01', end=today)
 
 # preparing data for prophet
-df.reset_index(inplace=True)
-df['Date'] = df['Date'].dt.strftime('%Y-%m-%d')
-df[['ds','y']] = df[['Date','Close']]  
-print(df)
+df.reset_index(inplace=True)  
 df['ds'] = df['Date'].dt.strftime('%Y-%m-%d')
-df[['y']] = df[['Close']]  
-
-# data visualization
+df[['y']] = df[['Close']]   
+    
 # real data visualization
 fig = px.line(df, x='ds', y='y')
 fig.update_xaxes(rangeslider_visible=True)

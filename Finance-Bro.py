@@ -145,7 +145,8 @@ if st.button("Predict", type="primary"):
     col3, col4 = st.columns(2)
     
     with col3:
-        st.write(f"### Predicted Prices for the next {num_days} days")
+        st.write("### Predicted Prices")
+        st.write(f"for the next {num_days} days")
         predicted_values_df = pd.DataFrame({
             "Date": future_dates.strftime('%Y-%m-%d'),
             "Predicted Price (USD)": n_days_preds.flatten()
